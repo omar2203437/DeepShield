@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DeepShield</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #071a2b;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .card {
+      width: 520px;
+      background: #0d2a44;
+      border-radius: 14px;
+      padding: 26px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      color: #eaf2ff;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .sub {
+      text-align: center;
+      opacity: .85;
+      margin-top: 6px;
+      margin-bottom: 18px;
+    }
+
+    .toggle {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 18px;
+      gap: 10px;
+    }
+
+    .pill {
+      padding: 10px 18px;
+      border-radius: 10px;
+      background: #0a2135;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .pill.active {
+      background: #2f6bff;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .row {
+      background: #0a2135;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type=file] {
+      color: #eaf2ff;
+      width: 100%;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #2f6bff;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .result {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #0a2135;
+      min-height: 52px;
+      white-space: pre-wrap;
+    }
+
+    .small {
+      opacity: .85;
+      font-size: 13px;
+      margin-top: 6px;
+      word-break: break-word;
+    }
+
+    .feedback {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .real {
+      background: #1f8a70;
+    }
+
+    .fake {
+      background: #c0392b;
+    }
+
+    .preview {
+      margin-top: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      max-width: 100%;
+      max-height: 260px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="title">DeepShield</div>
+  <div class="sub" id="subtitle">Forensic AI for Video</div>
+
+  <div class="toggle">
+    <div class="pill active" id="tabVideo">Video Mode</div>
+    <div class="pill" id="tabImage">Image Mode</div>
+  </div>
+
+  <!-- VIDEO MODE -->
+  <div class="panel active" id="panelVideo">
+    <div class="row">
+      <input id="file" type="file" accept="video/*" />
+    </div>
+
+    <button id="scan" disabled>Scan File</button>
+
+    <div class="result" id="result">Upload a video to scan.</div>
+    <div class="small" id="meta"></div>
+
+    <div class="feedback">
+      <button id="markReal" class="real" disabled>Mark REAL</button>
+      <button id="markFake" class="fake" disabled>Mark FAKE</button>
+    </div>
+  </div>
+
+  <!-- IMAGE MODE -->
+  <div class="panel" id="panelImage">
+    <div class="row">
+      <input id="imgFile" type="file" accept="image/*" />
+    </div>
+
+    <img id="imgPreview" class="preview" />
+
+    <button id="scanImg" disabled>Scan Image</button>
+
+    <div class="result" id="imgResult">Upload an image to scan.</div>
+    <div class="small" id="imgMeta"></div>
+  </div>
+</div>
+
+<script>
+  const backend = "http://localhost:8000";
+
+  // Tabs
+  const tabVideo = document.getElementById("tabVideo");
+  const tabImage = document.getElementById("tabImage");
+  const panelVideo = document.getElementById("panelVideo");
+  const panelImage = document.getElementById("panelImage");
+  const subtitle = document.getElementById("subtitle");
+
+  function setMode(mode) {
+    if (mode === "video") {
+      tabVideo.classList.add("active");
+      tabImage.classList.remove("active");
+      panelVideo.classList.add("active");
+      panelImage.classList.remove("active");
+      subtitle.textContent = "Forensic AI for Video";
+    } else {
+      tabImage.classList.add("active");
+      tabVideo.classList.remove("active");
+      panelImage.classList.add("active");
+      panelVideo.classList.remove("active");
+      subtitle.textContent = "Forensic AI for Images";
+    }
+  }
+
+  tabVideo.addEventListener("click", () => setMode("video"));
+  tabImage.addEventListener("click", () => setMode("image"));
+
+  // -------------------------
+  // VIDEO MODE (unchanged)
+  // -------------------------
+  const fileEl = document.getElementById("file");
+  const scanBtn = document.getElementById("scan");
+  const resultEl = document.getElementById("result");
+  const metaEl = document.getElementById("meta");
+
+  const markReal = document.getElementById("markReal");
+  const markFake = document.getElementById("markFake");
+
+  let lastUploadId = null;
+
+  fileEl.addEventListener("change", () => {
+    scanBtn.disabled = !fileEl.files.length;
+    resultEl.textContent = fileEl.files.length
+      ? "Ready to scan."
+      : "Upload a video to scan.";
+    metaEl.textContent = "";
+
+    markReal.disabled = true;
+    markFake.disabled = true;
+    lastUploadId = null;
+  });
+
+  scanBtn.addEventListener("click", async () => {
+    const file = fileEl.files[0];
+    if (!file) return;
+
+    scanBtn.disabled = true;
+    resultEl.textContent = "Scanning...";
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    try {
+      const res = await fetch(`${backend}/predict`, {
+        method: "POST",
+        body: fd
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        resultEl.textContent = data.error || "Prediction error";
+        metaEl.textContent = "";
+      } else {
+        resultEl.textContent =
+          `Result: ${data.label} — Confidence: ${data.confidence}%`;
+
+        metaEl.textContent =
+          `Fake: ${data.prob_fake}% | Real: ${data.prob_real}% | Frames: ${data.frames_used}`;
+
+        lastUploadId = data.upload_id;
+        markReal.disabled = false;
+        markFake.disabled = false;
+      }
+    } catch (e) {
+      resultEl.textContent =
+        "Backend not running. Start FastAPI on port 8000.";
+      metaEl.textContent = "";
+    } finally {
+      scanBtn.disabled = false;
+    }
+  });
+
+  async function sendFeedback(label) {
+    if (!lastUploadId) return;
+
+    try {
+      const res = await fetch(`${backend}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          upload_id: lastUploadId,
+          label: label
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        resultEl.textContent = data.error || "Feedback error";
+      } else {
+        resultEl.textContent +=
+          ` | Feedback saved: ${label.toUpperCase()}`;
+        markReal.disabled = true;
+        markFake.disabled = true;
+      }
+    } catch (e) {
+      resultEl.textContent =
+        "Feedback failed (backend not running?)";
+    }
+  }
+
+  markReal.addEventListener("click", () => sendFeedback("real"));
+  markFake.addEventListener("click", () => sendFeedback("fake"));
+
+  // -------------------------
+  // IMAGE MODE (new)
+  // -------------------------
+  const imgFile = document.getElementById("imgFile");
+  const scanImg = document.getElementById("scanImg");
+  const imgResult = document.getElementById("imgResult");
+  const imgMeta = document.getElementById("imgMeta");
+  const imgPreview = document.getElementById("imgPreview");
+
+  imgFile.addEventListener("change", () => {
+    scanImg.disabled = !imgFile.files.length;
+    imgResult.textContent = imgFile.files.length ? "Ready to scan." : "Upload an image to scan.";
+    imgMeta.textContent = "";
+
+    imgPreview.style.display = "none";
+    imgPreview.src = "";
+
+    const f = imgFile.files?.[0];
+    if (f) {
+      imgPreview.src = URL.createObjectURL(f);
+      imgPreview.style.display = "block";
+    }
+  });
+
+  scanImg.addEventListener("click", async () => {
+    const f = imgFile.files?.[0];
+    if (!f) return;
+
+    scanImg.disabled = true;
+    imgResult.textContent = "Scanning image...";
+
+    const fd = new FormData();
+    fd.append("file", f);
+
+    try {
+      const res = await fetch(`${backend}/predict-image`, {
+        method: "POST",
+        body: fd
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        imgResult.textContent = data.error || "Image prediction error";
+        imgMeta.textContent = "";
+      } else {
+        const confPct = (data.confidence * 100).toFixed(2);
+        imgResult.textContent = `Result: ${data.label} — Confidence: ${confPct}%`;
+        imgMeta.textContent = data.probs ? `Probs: ${JSON.stringify(data.probs)}` : "";
+      }
+    } catch (e) {
+      imgResult.textContent = "Backend not running. Start FastAPI on port 8000.";
+      imgMeta.textContent = "";
+    } finally {
+      scanImg.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
