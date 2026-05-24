@@ -51,14 +51,41 @@
       cursor: pointer;
       user-select: none;
       border: 1px solid rgba(255,255,255,0.08);
+      transition: background 0.2s;
     }
 
-    .pill.active {
-      background: #2f6bff;
-    }
+    .pill.active { background: #2f6bff; }
 
     .panel { display: none; }
     .panel.active { display: block; }
+
+    .model-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .model-pill {
+      padding: 7px 16px;
+      border-radius: 8px;
+      background: #0a2135;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: background 0.2s;
+    }
+
+    .model-pill.active { background: #1a5276; border-color: #2e86c1; }
+
+    .model-desc {
+      text-align: center;
+      font-size: 12px;
+      opacity: .6;
+      margin-bottom: 12px;
+    }
 
     .row {
       background: #0a2135;
@@ -67,6 +94,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      margin-bottom: 10px;
     }
 
     input[type=file] {
@@ -85,6 +113,7 @@
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
+      transition: opacity 0.2s;
     }
 
     button:disabled {
@@ -114,13 +143,8 @@
       margin-top: 10px;
     }
 
-    .real {
-      background: #1f8a70;
-    }
-
-    .fake {
-      background: #c0392b;
-    }
+    .real { background: #1f8a70; }
+    .fake { background: #c0392b; }
 
     .preview {
       margin-top: 12px;
@@ -129,6 +153,11 @@
       max-width: 100%;
       max-height: 260px;
       display: none;
+    }
+
+    audio.preview {
+      width: 100%;
+      background: #0a2135;
     }
   </style>
 </head>
@@ -139,223 +168,260 @@
   <div class="sub" id="subtitle">Forensic AI for Video</div>
 
   <div class="toggle">
-    <div class="pill active" id="tabVideo">Video Mode</div>
-    <div class="pill" id="tabImage">Image Mode</div>
+    <div class="pill active" id="tabVideo">Video</div>
+    <div class="pill" id="tabImage">Image</div>
+    <div class="pill" id="tabAudio">Audio</div>
   </div>
 
-  <!-- VIDEO MODE -->
+  <!-- VIDEO -->
   <div class="panel active" id="panelVideo">
-    <div class="row">
-      <input id="file" type="file" accept="video/*" />
+    <div class="model-toggle">
+      <div class="model-pill active" id="modelStandard">Standard</div>
+      <div class="model-pill" id="modelSensitive">Sensitive</div>
     </div>
-
-    <button id="scan" disabled>Scan File</button>
-
-    <div class="result" id="result">Upload a video to scan.</div>
-    <div class="small" id="meta"></div>
-
+    <div class="model-desc" id="modelDesc">Face-swap focused · Higher benchmark accuracy</div>
+    <div class="row">
+      <input id="videoFile" type="file" accept="video/*" />
+    </div>
+    <button id="scanVideo" disabled>Scan Video</button>
+    <div class="result" id="videoResult">Upload a video to scan.</div>
+    <div class="small" id="videoMeta"></div>
     <div class="feedback">
       <button id="markReal" class="real" disabled>Mark REAL</button>
       <button id="markFake" class="fake" disabled>Mark FAKE</button>
     </div>
+    <div class="small" id="feedbackMsg"></div>
   </div>
 
-  <!-- IMAGE MODE -->
+  <!-- IMAGE -->
   <div class="panel" id="panelImage">
     <div class="row">
       <input id="imgFile" type="file" accept="image/*" />
     </div>
-
     <img id="imgPreview" class="preview" />
-
     <button id="scanImg" disabled>Scan Image</button>
-
     <div class="result" id="imgResult">Upload an image to scan.</div>
     <div class="small" id="imgMeta"></div>
+  </div>
+
+  <!-- AUDIO -->
+  <div class="panel" id="panelAudio">
+    <div class="row">
+      <input id="audioFile" type="file" accept="audio/*" />
+    </div>
+    <audio id="audioPreview" class="preview" controls></audio>
+    <button id="scanAudio" disabled>Scan Audio</button>
+    <div class="result" id="audioResult">Upload an audio file to scan.</div>
+    <div class="small" id="audioMeta"></div>
   </div>
 </div>
 
 <script>
-  const backend = "http://localhost:8000";
+  const BASE = "http://localhost:8000";
 
-  // Tabs
-  const tabVideo = document.getElementById("tabVideo");
-  const tabImage = document.getElementById("tabImage");
-  const panelVideo = document.getElementById("panelVideo");
-  const panelImage = document.getElementById("panelImage");
-  const subtitle = document.getElementById("subtitle");
+  // ── Tabs ──────────────────────────────────────────────
+  const TABS = [
+    { tab: "tabVideo",  panel: "panelVideo",  mode: "video",  subtitle: "Forensic AI for Video" },
+    { tab: "tabImage",  panel: "panelImage",  mode: "image",  subtitle: "Forensic AI for Images" },
+    { tab: "tabAudio",  panel: "panelAudio",  mode: "audio",  subtitle: "Forensic AI for Audio" },
+  ];
 
-  function setMode(mode) {
-    if (mode === "video") {
-      tabVideo.classList.add("active");
-      tabImage.classList.remove("active");
-      panelVideo.classList.add("active");
-      panelImage.classList.remove("active");
-      subtitle.textContent = "Forensic AI for Video";
-    } else {
-      tabImage.classList.add("active");
-      tabVideo.classList.remove("active");
-      panelImage.classList.add("active");
-      panelVideo.classList.remove("active");
-      subtitle.textContent = "Forensic AI for Images";
-    }
-  }
+  TABS.forEach(({ tab, panel, subtitle }) => {
+    document.getElementById(tab).addEventListener("click", () => {
+      TABS.forEach(t => {
+        document.getElementById(t.tab).classList.remove("active");
+        document.getElementById(t.panel).classList.remove("active");
+      });
+      document.getElementById(tab).classList.add("active");
+      document.getElementById(panel).classList.add("active");
+      document.getElementById("subtitle").textContent = subtitle;
+    });
+  });
 
-  tabVideo.addEventListener("click", () => setMode("video"));
-  tabImage.addEventListener("click", () => setMode("image"));
+  // ── Model selector ────────────────────────────────────
+  let selectedModel = "standard";
 
-  // -------------------------
-  // VIDEO MODE (unchanged)
-  // -------------------------
-  const fileEl = document.getElementById("file");
-  const scanBtn = document.getElementById("scan");
-  const resultEl = document.getElementById("result");
-  const metaEl = document.getElementById("meta");
+  const MODEL_INFO = {
+    standard:  "Face crop",
+    sensitive: "Whole frame",
+  };
 
-  const markReal = document.getElementById("markReal");
-  const markFake = document.getElementById("markFake");
+  document.getElementById("modelStandard").addEventListener("click", () => {
+    selectedModel = "standard";
+    document.getElementById("modelStandard").classList.add("active");
+    document.getElementById("modelSensitive").classList.remove("active");
+    document.getElementById("modelDesc").textContent = MODEL_INFO.standard;
+  });
 
-  let lastUploadId = null;
+  document.getElementById("modelSensitive").addEventListener("click", () => {
+    selectedModel = "sensitive";
+    document.getElementById("modelSensitive").classList.add("active");
+    document.getElementById("modelStandard").classList.remove("active");
+    document.getElementById("modelDesc").textContent = MODEL_INFO.sensitive;
+  });
 
-  fileEl.addEventListener("change", () => {
-    scanBtn.disabled = !fileEl.files.length;
-    resultEl.textContent = fileEl.files.length
-      ? "Ready to scan."
-      : "Upload a video to scan.";
-    metaEl.textContent = "";
+  // ── VIDEO ─────────────────────────────────────────────
+  const videoFile   = document.getElementById("videoFile");
+  const scanVideo   = document.getElementById("scanVideo");
+  const videoResult = document.getElementById("videoResult");
+  const videoMeta   = document.getElementById("videoMeta");
+  const markReal    = document.getElementById("markReal");
+  const markFake    = document.getElementById("markFake");
+  const feedbackMsg = document.getElementById("feedbackMsg");
+  let lastUploadId  = null;
 
+  videoFile.addEventListener("change", () => {
+    const has = videoFile.files.length > 0;
+    scanVideo.disabled = !has;
+    videoResult.textContent = has ? "Ready to scan." : "Upload a video to scan.";
+    videoMeta.textContent = "";
+    feedbackMsg.textContent = "";
     markReal.disabled = true;
     markFake.disabled = true;
     lastUploadId = null;
   });
 
-  scanBtn.addEventListener("click", async () => {
-    const file = fileEl.files[0];
+  scanVideo.addEventListener("click", async () => {
+    const file = videoFile.files[0];
     if (!file) return;
 
-    scanBtn.disabled = true;
-    resultEl.textContent = "Scanning...";
+    scanVideo.disabled = true;
+    markReal.disabled = true;
+    markFake.disabled = true;
+    feedbackMsg.textContent = "";
+    videoResult.textContent = "Scanning… this may take a few seconds.";
+    videoMeta.textContent = "";
 
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("model", selectedModel);
 
     try {
-      const res = await fetch(`${backend}/predict`, {
-        method: "POST",
-        body: fd
-      });
-
+      const res  = await fetch(`${BASE}/predict`, { method: "POST", body: fd });
       const data = await res.json();
 
       if (!res.ok) {
-        resultEl.textContent = data.error || "Prediction error";
-        metaEl.textContent = "";
+        videoResult.textContent = data.error || "Prediction failed.";
       } else {
-        resultEl.textContent =
-          `Result: ${data.label} — Confidence: ${data.confidence}%`;
-
-        metaEl.textContent =
-          `Fake: ${data.prob_fake}% | Real: ${data.prob_real}% | Frames: ${data.frames_used}`;
-
-        lastUploadId = data.upload_id;
+        videoResult.textContent = `Result: ${data.label} — Confidence: ${data.confidence}%`;
+        videoMeta.textContent   = `Fake: ${data.prob_fake}%  Real: ${data.prob_real}%  |  Frames analysed: ${data.frames_used}  |  Device: ${data.device}  |  Model: ${selectedModel}`;
+        lastUploadId  = data.upload_id;
         markReal.disabled = false;
         markFake.disabled = false;
       }
-    } catch (e) {
-      resultEl.textContent =
-        "Backend not running. Start FastAPI on port 8000.";
-      metaEl.textContent = "";
+    } catch {
+      videoResult.textContent = "Cannot reach backend. Is the server running on port 8000?";
     } finally {
-      scanBtn.disabled = false;
+      scanVideo.disabled = false;
     }
   });
 
   async function sendFeedback(label) {
     if (!lastUploadId) return;
+    markReal.disabled = true;
+    markFake.disabled = true;
+    feedbackMsg.textContent = "Saving feedback…";
 
     try {
-      const res = await fetch(`${backend}/feedback`, {
+      const res  = await fetch(`${BASE}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          upload_id: lastUploadId,
-          label: label
-        })
+        body: JSON.stringify({ upload_id: lastUploadId, label }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        resultEl.textContent = data.error || "Feedback error";
-      } else {
-        resultEl.textContent +=
-          ` | Feedback saved: ${label.toUpperCase()}`;
-        markReal.disabled = true;
-        markFake.disabled = true;
-      }
-    } catch (e) {
-      resultEl.textContent =
-        "Feedback failed (backend not running?)";
+      feedbackMsg.textContent = res.ok
+        ? `Saved as ${label.toUpperCase()}. Thank you!`
+        : data.error || "Feedback failed.";
+    } catch {
+      feedbackMsg.textContent = "Could not save feedback.";
     }
+    lastUploadId = null;
   }
 
   markReal.addEventListener("click", () => sendFeedback("real"));
   markFake.addEventListener("click", () => sendFeedback("fake"));
 
-  // -------------------------
-  // IMAGE MODE (new)
-  // -------------------------
-  const imgFile = document.getElementById("imgFile");
-  const scanImg = document.getElementById("scanImg");
-  const imgResult = document.getElementById("imgResult");
-  const imgMeta = document.getElementById("imgMeta");
+  // ── IMAGE ─────────────────────────────────────────────
+  const imgFile    = document.getElementById("imgFile");
+  const scanImg    = document.getElementById("scanImg");
+  const imgResult  = document.getElementById("imgResult");
+  const imgMeta    = document.getElementById("imgMeta");
   const imgPreview = document.getElementById("imgPreview");
 
   imgFile.addEventListener("change", () => {
-    scanImg.disabled = !imgFile.files.length;
-    imgResult.textContent = imgFile.files.length ? "Ready to scan." : "Upload an image to scan.";
+    const f = imgFile.files[0];
+    scanImg.disabled = !f;
+    imgResult.textContent = f ? "Ready to scan." : "Upload an image to scan.";
     imgMeta.textContent = "";
-
-    imgPreview.style.display = "none";
-    imgPreview.src = "";
-
-    const f = imgFile.files?.[0];
-    if (f) {
-      imgPreview.src = URL.createObjectURL(f);
-      imgPreview.style.display = "block";
-    }
+    imgPreview.style.display = f ? "block" : "none";
+    imgPreview.src = f ? URL.createObjectURL(f) : "";
   });
 
   scanImg.addEventListener("click", async () => {
-    const f = imgFile.files?.[0];
+    const f = imgFile.files[0];
     if (!f) return;
-
     scanImg.disabled = true;
-    imgResult.textContent = "Scanning image...";
+    imgResult.textContent = "Scanning…";
 
     const fd = new FormData();
     fd.append("file", f);
 
     try {
-      const res = await fetch(`${backend}/predict-image`, {
-        method: "POST",
-        body: fd
-      });
-
+      const res  = await fetch(`${BASE}/predict-image`, { method: "POST", body: fd });
       const data = await res.json();
-
       if (!res.ok) {
-        imgResult.textContent = data.error || "Image prediction error";
+        imgResult.textContent = data.error || "Image prediction failed.";
         imgMeta.textContent = "";
       } else {
-        const confPct = (data.confidence * 100).toFixed(2);
-        imgResult.textContent = `Result: ${data.label} — Confidence: ${confPct}%`;
-        imgMeta.textContent = data.probs ? `Probs: ${JSON.stringify(data.probs)}` : "";
+        imgResult.textContent = `Result: ${data.label} — Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+        imgMeta.textContent   = data.probs ? `Probs: ${JSON.stringify(data.probs)}` : "";
       }
-    } catch (e) {
-      imgResult.textContent = "Backend not running. Start FastAPI on port 8000.";
-      imgMeta.textContent = "";
+    } catch {
+      imgResult.textContent = "Cannot reach backend.";
     } finally {
       scanImg.disabled = false;
+    }
+  });
+
+  // ── AUDIO ─────────────────────────────────────────────
+  const audioFile    = document.getElementById("audioFile");
+  const scanAudio    = document.getElementById("scanAudio");
+  const audioResult  = document.getElementById("audioResult");
+  const audioMeta    = document.getElementById("audioMeta");
+  const audioPreview = document.getElementById("audioPreview");
+
+  audioFile.addEventListener("change", () => {
+    const f = audioFile.files[0];
+    scanAudio.disabled = !f;
+    audioResult.textContent = f ? "Ready to scan." : "Upload an audio file to scan.";
+    audioMeta.textContent = "";
+    audioPreview.style.display = f ? "block" : "none";
+    audioPreview.src = f ? URL.createObjectURL(f) : "";
+  });
+
+  scanAudio.addEventListener("click", async () => {
+    const f = audioFile.files[0];
+    if (!f) return;
+    scanAudio.disabled = true;
+    audioResult.textContent = "Scanning…";
+
+    const fd = new FormData();
+    fd.append("file", f);
+
+    try {
+      const res  = await fetch(`${BASE}/predict-audio`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        audioResult.textContent = data.error || "Audio prediction failed.";
+        audioMeta.textContent = "";
+      } else {
+        audioResult.textContent = `Result: ${data.label} — Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+        audioMeta.textContent   = data.probs ? `Probs: ${JSON.stringify(data.probs)}` : "";
+      }
+    } catch {
+      audioResult.textContent = "Cannot reach backend.";
+    } finally {
+      scanAudio.disabled = false;
     }
   });
 </script>

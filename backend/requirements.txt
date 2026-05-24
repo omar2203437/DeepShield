@@ -5,3 +5,7 @@ torch
 torchvision
 opencv-python
 numpy
+transformers
+huggingface_hub
+Pillow
+librosa
