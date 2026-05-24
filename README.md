@@ -69,4 +69,4 @@ Then open `frontend/index.html` in your browser.
 - Ahmed Mahmoud
 
 **Supervisors:** Dr. Mohamed Seif & Dr. Maya Waleed  
-**Faculty of Computers and Artificial Intelligence — 2024/2025**
+**Faculty of Computers and Artificial Intelligence — 2025/2026**
