@@ -37,7 +37,7 @@ Model files are not included in this repository due to their size.
 |-------|------|----------|
 | CLIP ViT-L/14 (Standard) | `clip_finetuned_0827.torchscript` | [Google Drive](https://drive.google.com/drive/folders/1ydk68Nf_q0oiQ3I4q9_QXJKotolKryQy?usp=sharing) |
 | CLIP ViT-L/14 (Sensitive) | `clip_finetuned.torchscript` | [Google Drive](https://drive.google.com/drive/folders/1ydk68Nf_q0oiQ3I4q9_QXJKotolKryQy?usp=sharing) |
-| SiGLIP ViT | `image_deepfake_detector_best/` |  [Googlerive](https://drive.google.com/drive/folders/1lcYQETaYFgzzuZ-ZcUwejUoltepHDuuF?usp=sharing) |
+| SiGLIP ViT | `image_deepfake_detector_best/` |  [Google Drive](https://drive.google.com/drive/folders/1lcYQETaYFgzzuZ-ZcUwejUoltepHDuuF?usp=sharing) |
 | WavLM Base+ | `wavlm-deepfake-detector-final/` | [Google Drive](https://drive.google.com/drive/folders/1I0RAOHs_9DR2DQBa2Ci-D8VuYfWL36II?usp=sharing) |
 
 Place downloaded models in the `models/` directory before running the backend.
